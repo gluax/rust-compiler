@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-#[allow(dead_code)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenType {
     // Misc
     ILLEGAL,
@@ -47,30 +46,24 @@ pub struct Token {
     pub literal: String,
 }
 
-// macro_rules! hashmap {
-//     ($( $key: expr => $val: expr ),*) => {{
-//          let mut map = ::std::collections::HashMap::new();
-//          $( map.insert($key, $val); )*
-//          map
-//     }}
-// }
-
 lazy_static! {
-    static ref HASHMAP: HashMap<&'static str, TokenType> = {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
         let mut m = HashMap::new();
         m.insert("fn", TokenType::FUNCTION);
         m.insert("let", TokenType::LET);
-        m.insert("", TokenType::TRUE);
+        m.insert("true", TokenType::TRUE);
+        m.insert("false", TokenType::FALSE);
+        m.insert("if", TokenType::IF);
+        m.insert("else", TokenType::ELSE);
+        m.insert("return", TokenType::RETURN);
         m
     };
 }
 
-// static mut Keywords: HashMap<&str, TokenType> = hashmap![
-//     "fn" => TokenType::FUNCTION,
-//     "let" => TokenType::LET,
-//     "true" => TokenType::TRUE,
-//     "false" => TokenType::FALSE,
-//     "if" => TokenType::IF,
-//     "else" => TokenType::ELSE,
-//     "return" => TokenType::RETURN
-// ];
+pub fn lookup_ident(ident: &str) -> TokenType {
+    println!("ident: {}", ident);
+    match KEYWORDS.get(ident) {
+        Some(t_type) => *t_type,
+        None => TokenType::ILLEGAL,
+    }
+}

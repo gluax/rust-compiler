@@ -2,8 +2,8 @@
 ** About
 *** A to be named language.
 ** Why?
-*** I wanted to learn to write a compiler. So these are the files as I
-    continue to expand on this project.
+ I wanted to learn to write a compiler. So these are the files as I
+ continue to expand on this project.
 ** Tokenizer
 *** The tokens associated in the language.
 *** src/tokenizer/token.rs
