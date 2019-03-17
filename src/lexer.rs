@@ -19,7 +19,6 @@ fn new_token(token_type: TokenType, ch: u8) -> Token {
     }
 }
 
-#[allow(dead_code)]
 impl Lexer {
     fn peek_char(&mut self) -> char {
         if self.read_pos >= self.input.len() {
@@ -94,7 +93,7 @@ impl Lexer {
                 }
             }
             '+' => new_token(TokenType::PLUS, self.ch),
-            '-' => new_token(TokenType::PLUS, self.ch),
+            '-' => new_token(TokenType::MINUS, self.ch),
             '!' => {
                 if self.peek_char() == '=' {
                     let ch = self.ch;

@@ -7,15 +7,15 @@ trait Node: Display {
     fn token_literal(&self) -> String;
 }
 
-trait Statement: Node {
+pub trait Statement: Node {
     fn statement_node(&self);
 }
 
-trait Expression: Node {
+pub trait Expression: Node {
     fn expression_node(&self);
 }
 
-struct Program {
+pub struct Program {
     statements: Vec<Statement>,
 }
 
@@ -37,13 +37,13 @@ impl Node for Program {
     }
 }
 
-struct LetsStatement {
+pub struct LetStatement {
     tok: Token,
     name: Identifer,
     val: Option<Expression>,
 }
 
-impl Statement for LetsStatement {
+impl Statement for LetStatement {
     fn statement_node(&self) {}
 
     pub fn token_literal(&self) -> String {
