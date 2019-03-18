@@ -1,9 +1,8 @@
 use std::fmt;
 
-mod token;
-pub use self::token::{Token, TokenType};
+use crate::token::Token;
 
-trait Node: Display {
+trait Node: fmt::Display {
     fn token_literal(&self) -> String;
 }
 
@@ -20,14 +19,16 @@ pub struct Program {
 }
 
 impl Node for Program {
-    pub fn token_literal(&self) -> String {
+    fn token_literal(&self) -> String {
         if self.statements.len() > 0 {
             self.statements[0].token_literal()
         } else {
             "".to_string()
         }
     }
+}
 
+impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut out = Vec::new();
         for stmt in self.statements {
@@ -45,11 +46,15 @@ pub struct LetStatement {
 
 impl Statement for LetStatement {
     fn statement_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for LetStatement {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for LetStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.val {
             Some(val) => write!(f, "{} {} = {};", self.token_literal(), self.name, val),
@@ -58,18 +63,22 @@ impl Statement for LetStatement {
     }
 }
 
-struct ReturnStatement {
+pub struct ReturnStatement {
     tok: Token,
     return_val: Option<Expression>,
 }
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for ReturnStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.return_val {
             Some(val) => write!(f, "{} {};", self.token_literal(), val),
@@ -78,35 +87,43 @@ impl Statement for ReturnStatement {
     }
 }
 
-struct ExpressionStatement {
+pub struct ExpressionStatement {
     tok: Token,
     expression: Expression,
 }
 
 impl Statement for ExpressionStatement {
     fn statement_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for ExpressionStatement {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for ExpressionStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.expression)
     }
 }
 
-struct BlockStatement {
+pub struct BlockStatement {
     tok: Token,
     statements: Vec<Statement>,
 }
 
 impl Statement for BlockStatement {
     fn statement_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for BlockStatement {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for BlockStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut out = Vec::new();
         for stmt in self.statements {
@@ -116,58 +133,70 @@ impl Statement for BlockStatement {
     }
 }
 
-struct Identifer {
+pub struct Identifer {
     tok: Token,
     val: String,
 }
 
 impl Expression for Identifer {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for Identifer {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for Identifer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.val)
     }
 }
 
-struct Boolean {
+pub struct Boolean {
     tok: Token,
-    val: Bool,
+    val: bool,
 }
 
 impl Expression for Boolean {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for Boolean {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for Boolean {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.token_literal)
     }
 }
 
-struct Integer {
+pub struct Integer {
     tok: Token,
     val: i64,
 }
 
 impl Expression for Integer {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for Integer {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for Integer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.token_literal())
     }
 }
 
-struct PrefixExpression {
+pub struct PrefixExpression {
     tok: Token,
     op: String,
     right: Expression,
@@ -175,17 +204,21 @@ struct PrefixExpression {
 
 impl Expression for PrefixExpression {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for PrefixExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}{})", self.op, self.right)
     }
 }
 
-struct InfixExpression {
+pub struct InfixExpression {
     tok: Token,
     op: String,
     left: Expression,
@@ -194,36 +227,44 @@ struct InfixExpression {
 
 impl Expression for InfixExpression {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for InfixExpression {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for InfixExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({} {} {})", self.left, self.op, self.right)
     }
 }
 
-struct IfExpression {
+pub struct IfExpression {
     tok: Token,
     cond: Expression,
     conseq: BlockStatement,
-    alt: Option<BlockStatement>,
+    alt: BlockStatement,
 }
 
 impl Expression for IfExpression {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for IfExpression {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for IfExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "if {} {})", self.cond, self.coneq)
     }
 }
 
-struct Function {
+pub struct Function {
     tok: Token,
     params: Vec<Identifer>,
     body: BlockStatement,
@@ -231,34 +272,48 @@ struct Function {
 
 impl Expression for Function {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for Function {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut out = Vec::new();
         for param in self.params {
             out.push(param.to_string());
         }
 
-        write!(f, "{} ({}) {}", self.token_literal, out.join(, ), self.body)
+        write!(
+            f,
+            "{} ({}) {}",
+            self.token_literal,
+            out.join(", "),
+            self.body
+        )
     }
 }
 
-struct CallExpression {
+pub struct CallExpression {
     tok: Token,
     func: Expression,
-    args: Vec<Expression>,
+    args: Option<Vec<Expression>>,
 }
 
 impl Expression for CallExpression {
     fn expression_node(&self) {}
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for CallExpression {
+    fn token_literal(&self) -> String {
         self.tok.literal
     }
+}
 
+impl fmt::Display for CallExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut out = Vec::new();
         for arg in self.args {
