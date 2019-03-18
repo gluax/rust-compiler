@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TokenType {
     // Misc
     ILLEGAL,
@@ -38,6 +38,9 @@ pub enum TokenType {
     IF,
     ELSE,
     RETURN,
+
+    // Dummy Value
+    DUMMY,
 }
 
 #[derive(Clone, Debug)]

@@ -1,5 +1,6 @@
-use crate::token::{Token, TokenType};
+use crate::token::{lookup_ident, Token, TokenType};
 
+#[derive(Debug)]
 pub struct Lexer {
     input: String,
     pos: usize,
@@ -121,7 +122,7 @@ impl Lexer {
                 if is_letter(self.ch as char) {
                     let lit = self.read_ident();
                     Token {
-                        t_type: Token::lookup_ident(&lit),
+                        t_type: lookup_ident(&lit),
                         literal: lit,
                     }
                 } else if (self.ch as char).is_digit(10) {
