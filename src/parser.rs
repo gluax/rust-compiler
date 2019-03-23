@@ -31,8 +31,8 @@ lazy_static! {
     };
 }
 
-type PrefixParseFn = fn(&mut Parser) -> Box<ast::Expression>;
-type InfixParseFn = fn(Box<ast::Expression>) -> Box<ast::Expression>;
+type PrefixParseFn = fn(&mut Parser) -> Option<Box<ast::Expression>>;
+type InfixParseFn = fn(&mut Parser, Box<ast::Expression>) -> Box<ast::Expression>;
 
 pub struct Parser {
     pub lex: Lexer,
@@ -42,10 +42,137 @@ pub struct Parser {
     infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
-fn parse_ident(par: &mut Parser) -> Box<ast::Expression> {
-    Box::new(ast::Identifer {
+fn parse_ident(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    Some(Box::new(ast::Identifer {
         tok: par.cur_tok.clone(),
         val: par.cur_tok.clone().literal,
+    }))
+}
+
+fn parse_int_literal(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    let int_res = par.cur_tok.literal.parse::<i64>();
+    let int;
+    if int_res.is_ok() {
+        int = int_res.unwrap();
+    } else {
+        return None;
+    };
+
+    Some(Box::new(ast::Integer {
+        tok: par.cur_tok.clone(),
+        val: int,
+    }))
+}
+
+fn parse_bool(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    Some(Box::new(ast::Boolean {
+        tok: par.cur_tok.clone(),
+        val: par.cur_token_is(TokenType::TRUE),
+    }))
+}
+
+fn parse_grouped_expression(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    par.next_token();
+
+    let exp = par.parse_expression(LOWEST);
+
+    if !par.expect_peek(TokenType::RPAREN) {
+        return None;
+    }
+
+    exp
+}
+
+fn parse_prefix_expression(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    let tok = par.cur_tok.clone();
+    par.next_token();
+
+    Some(Box::new(ast::PrefixExpression {
+        tok: tok.clone(),
+        op: tok.clone().literal,
+        right: par.parse_expression(PREFIX),
+    }))
+}
+
+fn parse_if_expression(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    let tok = par.cur_tok.clone();
+    if !par.expect_peek(TokenType::LPAREN) {
+        return None;
+    }
+
+    par.next_token();
+    let cond = par.parse_expression(LOWEST);
+
+    if !par.expect_peek(TokenType::RPAREN) {
+        return None;
+    }
+
+    if !par.expect_peek(TokenType::LBRACE) {
+        return None;
+    }
+
+    let conseq = par.parse_block_statement();
+    let mut alt = None;
+    if par.peek_token_is(TokenType::ELSE) {
+        par.next_token();
+
+        if !par.expect_peek(TokenType::LBRACE) {
+            return None;
+        }
+        alt = Some(par.parse_block_statement());
+    }
+
+    Some(Box::new(ast::IfExpression {
+        tok: tok,
+        cond: cond.unwrap(),
+        conseq: conseq,
+        alt: alt,
+    }))
+}
+
+fn parse_function_literal(par: &mut Parser) -> Option<Box<ast::Expression>> {
+    let tok = par.cur_tok.clone();
+    if !par.expect_peek(TokenType::LPAREN) {
+        return None;
+    }
+
+    let params_opt = par.parse_function_params();
+    let params = if params_opt.is_some() {
+        params_opt.unwrap()
+    } else {
+        return None;
+    };
+
+    if !par.expect_peek(TokenType::LBRACE) {
+        return None;
+    }
+
+    Some(Box::new(ast::Function {
+        tok: tok,
+        params: params,
+        body: par.parse_block_statement(),
+    }))
+}
+
+fn parse_infix_expression(par: &mut Parser, left: Box<ast::Expression>) -> Box<ast::Expression> {
+    let tok = par.cur_tok.clone();
+    let precedence = par.cur_precedence();
+    par.next_token();
+    let right = par.parse_expression(precedence).unwrap();
+
+    Box::new(ast::InfixExpression {
+        tok: tok.clone(),
+        op: tok.clone().literal,
+        left: left,
+        right: right,
+    })
+}
+
+fn parse_call_expression(par: &mut Parser, func: Box<ast::Expression>) -> Box<ast::Expression> {
+    Box::new(ast::CallExpression {
+        tok: par.cur_tok.clone(),
+        func: func,
+        args: par.parse_call_args(),
     })
 }
 
@@ -84,10 +211,7 @@ impl Parser {
         while !self.cur_token_is(TokenType::RBRACE) && !self.cur_token_is(TokenType::EOF) {
             let stmt = self.parse_statement();
             stmts.push(stmt.unwrap());
-            // match stmt {
-            //     Some(val) => stmts.push(val
-            //     None => {}
-            // }
+            self.next_token();
         }
 
         ast::BlockStatement {
@@ -114,49 +238,6 @@ impl Parser {
         }
     }
 
-    fn parse_bool(&mut self) -> Box<ast::Expression> {
-        Box::new(ast::Boolean {
-            tok: self.cur_tok.clone(),
-            val: self.cur_token_is(TokenType::TRUE),
-        })
-    }
-
-    fn parse_if_expression(&mut self) -> Option<Box<ast::Expression>> {
-        let tok = self.cur_tok.clone();
-        if !self.expect_peek(TokenType::LPAREN) {
-            return None;
-        }
-
-        self.next_token();
-        let cond = self.parse_expression(LOWEST);
-
-        if !self.expect_peek(TokenType::RPAREN) {
-            return None;
-        }
-
-        if !self.expect_peek(TokenType::LPAREN) {
-            return None;
-        }
-
-        let conseq = self.parse_block_statement();
-        let mut alt = None;
-        if self.peek_token_is(TokenType::ELSE) {
-            self.next_token();
-
-            if self.expect_peek(TokenType::LBRACE) {
-                return None;
-            }
-            alt = Some(self.parse_block_statement());
-        }
-
-        Some(Box::new(ast::IfExpression {
-            tok: tok,
-            cond: cond.unwrap(),
-            conseq: conseq,
-            alt: alt,
-        }))
-    }
-
     fn parse_function_params(&mut self) -> Option<Vec<ast::Identifer>> {
         let mut idents: Vec<ast::Identifer> = Vec::new();
 
@@ -180,35 +261,11 @@ impl Parser {
             });
         }
 
-        if self.expect_peek(TokenType::RPAREN) {
+        if !self.expect_peek(TokenType::RPAREN) {
             return None;
         }
 
         Some(idents)
-    }
-
-    fn parse_function_literal(&mut self) -> Option<Box<ast::Expression>> {
-        let tok = self.cur_tok.clone();
-        if !self.expect_peek(TokenType::LPAREN) {
-            return None;
-        }
-
-        let params_opt = self.parse_function_params();
-        let params = if params_opt.is_some() {
-            params_opt.unwrap()
-        } else {
-            return None;
-        };
-
-        if !self.expect_peek(TokenType::LBRACE) {
-            return None;
-        }
-
-        Some(Box::new(ast::Function {
-            tok: tok,
-            params: params,
-            body: self.parse_block_statement(),
-        }))
     }
 
     fn parse_call_args(&mut self) -> Option<Vec<Box<ast::Expression>>> {
@@ -247,35 +304,12 @@ impl Parser {
         Some(args)
     }
 
-    fn parse_call_expression(&mut self, func: Box<ast::Expression>) -> Box<ast::Expression> {
-        Box::new(ast::CallExpression {
-            tok: self.cur_tok.clone(),
-            func: func,
-            args: self.parse_call_args(),
-        })
-    }
-
     fn register_prefix(&mut self, t_type: TokenType, func: PrefixParseFn) {
         self.prefix_parse_fns.insert(t_type, func);
     }
 
     fn register_infix(&mut self, t_type: TokenType, func: InfixParseFn) {
         self.infix_parse_fns.insert(t_type, func);
-    }
-
-    fn parse_int_literal(&mut self) -> Option<Box<ast::Expression>> {
-        let int_res = self.cur_tok.literal.parse::<i64>();
-        let int;
-        if int_res.is_ok() {
-            int = int_res.unwrap();
-        } else {
-            return None;
-        };
-
-        Some(Box::new(ast::Integer {
-            tok: self.cur_tok.clone(),
-            val: int,
-        }))
     }
 
     fn parse_expression(&mut self, precedence: u8) -> Option<Box<ast::Expression>> {
@@ -288,20 +322,27 @@ impl Parser {
             return None;
         }
 
+        let cloned = self.infix_parse_fns.clone();
         while !self.peek_token_is(TokenType::SEMICOLON) && precedence < self.peek_precedence() {
-            let infix = self.infix_parse_fns.get(&self.peek_tok.t_type);
+            let infix = cloned.get(&self.peek_tok.t_type);
             let ifunc;
             if infix.is_some() {
                 ifunc = infix.unwrap();
             } else {
-                return Some(left_exp);
+                return left_exp;
             }
 
-            // self.next_token();
-            left_exp = ifunc(left_exp);
+            self.next_token();
+            let unwrap;
+            if left_exp.is_some() {
+                unwrap = left_exp.unwrap();
+                left_exp = Some(ifunc(self, unwrap));
+            } else {
+                return None;
+            }
         }
 
-        Some(left_exp)
+        left_exp
     }
 
     fn parse_let_statement(&mut self) -> Option<Box<ast::Statement>> {
@@ -311,8 +352,8 @@ impl Parser {
         }
 
         let name = ast::Identifer {
-            tok: tok.clone(),
-            val: tok.clone().literal,
+            tok: self.cur_tok.clone(),
+            val: self.cur_tok.clone().literal,
         };
         if !self.expect_peek(TokenType::ASSIGN) {
             return None;
@@ -320,7 +361,8 @@ impl Parser {
 
         self.next_token();
 
-        let val = self.parse_expression(LOWEST).unwrap();
+        let val = self.parse_expression(LOWEST);
+        println!("after val: {}?", val.is_none());
         if !self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
         }
@@ -328,14 +370,14 @@ impl Parser {
         Some(Box::new(ast::LetStatement {
             tok: tok,
             name: name,
-            val: Some(val),
+            val: val,
         }))
     }
 
     fn parse_return_statement(&mut self) -> Option<Box<ast::Statement>> {
         let tok = self.cur_tok.clone();
         self.next_token();
-        let exp = self.parse_expression(LOWEST).unwrap();
+        let exp = self.parse_expression(LOWEST);
 
         if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
@@ -343,7 +385,7 @@ impl Parser {
 
         Some(Box::new(ast::ReturnStatement {
             tok: tok,
-            return_val: Some(exp),
+            return_val: exp,
         }))
     }
 
@@ -351,7 +393,7 @@ impl Parser {
         // let prefix = self.prefixParsefns.get(self.cur_tok.t_type);
         let stmt = ast::ExpressionStatement {
             tok: self.cur_tok.clone(),
-            expression: self.parse_expression(LOWEST).unwrap(),
+            expression: self.parse_expression(LOWEST),
         };
 
         if self.peek_token_is(TokenType::SEMICOLON) {
@@ -367,30 +409,6 @@ impl Parser {
             TokenType::RETURN => self.parse_return_statement(),
             _ => self.parse_expression_statement(),
         }
-    }
-
-    fn parse_prefix_expression(&mut self) -> Box<ast::Expression> {
-        let tok = self.cur_tok.clone();
-        self.next_token();
-
-        Box::new(ast::PrefixExpression {
-            tok: tok.clone(),
-            op: tok.clone().literal,
-            right: self.parse_expression(PREFIX).unwrap(),
-        })
-    }
-
-    fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Box<ast::Expression> {
-        let tok = self.cur_tok.clone();
-        let precedence = self.cur_precedence();
-        self.next_token();
-
-        Box::new(ast::InfixExpression {
-            tok: tok.clone(),
-            op: tok.clone().literal,
-            left: left,
-            right: self.parse_expression(precedence).unwrap(),
-        })
     }
 
     pub fn parse_program(&mut self) -> ast::Program {
@@ -427,23 +445,24 @@ impl Parser {
         };
 
         par.register_prefix(TokenType::IDENT, parse_ident);
-        // par.register_prefix(TokenType::INT, par.parse_int_literal);
-        // par.register_prefix(TokenType::BANG, par.parse_prefix_expression);
-        // par.register_prefix(TokenType::MINUS, par.parse_prefix_expression);
-        // par.register_prefix(TokenType::TRUE, par.parse_bool);
-        // par.register_prefix(TokenType::FALSE, par.parse_bool);
-        // // par.register_prefix(TokenType::LPAREN, par.);
-        // par.register_prefix(TokenType::IF, par.parse_if_expression);
-        // par.register_prefix(TokenType::FUNCTION, par.parse_function_literal);
+        par.register_prefix(TokenType::INT, parse_int_literal);
+        par.register_prefix(TokenType::BANG, parse_prefix_expression);
+        par.register_prefix(TokenType::MINUS, parse_prefix_expression);
+        par.register_prefix(TokenType::TRUE, parse_bool);
+        par.register_prefix(TokenType::FALSE, parse_bool);
+        par.register_prefix(TokenType::LPAREN, parse_grouped_expression);
+        par.register_prefix(TokenType::IF, parse_if_expression);
+        par.register_prefix(TokenType::FUNCTION, parse_function_literal);
 
-        // par.register_infix(TokenType::PLUS, par.parse_infix_expression);
-        // par.register_infix(TokenType::MINUS, par.parse_infix_expression);
-        // par.register_infix(TokenType::SLASH, par.parse_infix_expression);
-        // par.register_infix(TokenType::ASTERISK, par.parse_infix_expression);
-        // par.register_infix(TokenType::EQ, par.parse_infix_expression);
-        // par.register_infix(TokenType::NOTEQ, par.parse_infix_expression);
-        // par.register_infix(TokenType::LT, par.parse_infix_expression);
-        // par.register_infix(TokenType::GT, par.parse_infix_expression);
+        par.register_infix(TokenType::PLUS, parse_infix_expression);
+        par.register_infix(TokenType::MINUS, parse_infix_expression);
+        par.register_infix(TokenType::SLASH, parse_infix_expression);
+        par.register_infix(TokenType::ASTERISK, parse_infix_expression);
+        par.register_infix(TokenType::EQ, parse_infix_expression);
+        par.register_infix(TokenType::NOTEQ, parse_infix_expression);
+        par.register_infix(TokenType::LT, parse_infix_expression);
+        par.register_infix(TokenType::GT, parse_infix_expression);
+        par.register_infix(TokenType::LPAREN, parse_call_expression);
 
         par.next_token();
         par.next_token();

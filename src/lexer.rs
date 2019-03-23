@@ -69,9 +69,10 @@ impl Lexer {
 
     fn read_num(&mut self) -> String {
         let pos = self.pos;
-        while is_letter(self.ch as char) {
+        while (self.ch as char).is_digit(10) {
             self.read_char();
         }
+
         self.input.chars().skip(pos).take(self.pos - pos).collect()
     }
 
@@ -81,9 +82,10 @@ impl Lexer {
         let tok = match self.ch as char {
             '=' => {
                 if self.peek_char() == '=' {
-                    let ch = self.ch;
+                    let ch = self.ch as char;
                     self.read_char();
-                    let literal = ch.to_string() + &self.ch.to_string();
+                    let sch = self.ch as char;
+                    let literal = ch.to_string() + &sch.to_string();
                     Token {
                         t_type: TokenType::EQ,
                         literal: literal,
@@ -96,9 +98,10 @@ impl Lexer {
             '-' => new_token(TokenType::MINUS, self.ch),
             '!' => {
                 if self.peek_char() == '=' {
-                    let ch = self.ch;
+                    let ch = self.ch as char;
                     self.read_char();
-                    let literal = ch.to_string() + &self.ch.to_string();
+                    let sch = self.ch as char;
+                    let literal = ch.to_string() + &sch.to_string();
                     Token {
                         t_type: TokenType::NOTEQ,
                         literal: literal,
@@ -136,7 +139,16 @@ impl Lexer {
             }
         };
 
-        self.read_char();
-        tok
+        match tok.t_type {
+            TokenType::IDENT
+            | TokenType::INT
+            | TokenType::FUNCTION
+            | TokenType::TRUE
+            | TokenType::FALSE => tok,
+            _ => {
+                self.read_char();
+                tok
+            }
+        }
     }
 }

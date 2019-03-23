@@ -81,15 +81,15 @@ impl Node for ReturnStatement {
 impl fmt::Display for ReturnStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.return_val {
-            Some(val) => write!(f, "{} {};", self.token_literal(), val),
-            None => write!(f, "{} ;", self.token_literal()),
+            Some(val) => write!(f, "{} {}", self.token_literal(), val),
+            None => write!(f, "{}", self.token_literal()),
         }
     }
 }
 
 pub struct ExpressionStatement {
     pub tok: Token,
-    pub expression: Box<Expression>,
+    pub expression: Option<Box<Expression>>,
 }
 
 impl Statement for ExpressionStatement {
@@ -104,7 +104,10 @@ impl Node for ExpressionStatement {
 
 impl fmt::Display for ExpressionStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.expression)
+        if let Some(exp) = &self.expression {
+            return write!(f, "{}", exp);
+        }
+        write!(f, "")
     }
 }
 
@@ -199,7 +202,7 @@ impl fmt::Display for Integer {
 pub struct PrefixExpression {
     pub tok: Token,
     pub op: String,
-    pub right: Box<Expression>,
+    pub right: Option<Box<Expression>>,
 }
 
 impl Expression for PrefixExpression {
@@ -214,7 +217,10 @@ impl Node for PrefixExpression {
 
 impl fmt::Display for PrefixExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}{})", self.op, self.right)
+        if let Some(right) = &self.right {
+            return write!(f, "({}{})", self.op, right);
+        }
+        write!(f, "({})", self.op)
     }
 }
 
@@ -260,7 +266,14 @@ impl Node for IfExpression {
 
 impl fmt::Display for IfExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "if {} {})", self.cond, self.conseq)
+        if let Some(alt) = &self.alt {
+            return write!(
+                f,
+                "if {} {{ {} }} else {{ {} }}",
+                self.cond, self.conseq, alt
+            );
+        }
+        write!(f, "if {} {}", self.cond, self.conseq)
     }
 }
 
@@ -315,10 +328,13 @@ impl Node for CallExpression {
 
 impl fmt::Display for CallExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let out: Vec<String> = Vec::new();
-        // for arg in self.args.unwrap().iter() {
-        //     out.push(arg.to_string());
-        // }
+        let mut out: Vec<String> = Vec::new();
+        if let Some(args) = &self.args {
+            for arg in args {
+                out.push(arg.to_string());
+            }
+        }
+
         write!(f, "{} ({})", self.func, out.join(", "))
     }
 }

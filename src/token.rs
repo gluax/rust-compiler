@@ -64,9 +64,8 @@ lazy_static! {
 }
 
 pub fn lookup_ident(ident: &str) -> TokenType {
-    println!("ident: {}", ident);
     match KEYWORDS.get(ident) {
         Some(t_type) => *t_type,
-        None => TokenType::ILLEGAL,
+        None => TokenType::IDENT,
     }
 }
